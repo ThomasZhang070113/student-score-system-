@@ -108,7 +108,28 @@
 </head>
 <body>
 <div class="wrap">
+    <!-- 加在 header 区域，居中显示 -->
+    <div style="margin-top: 12px;">
+      <button class="btn ghost" onclick="downloadSelf()">⬇️ 下载本地版</button>
+    </div>
 
+    <script>
+      function downloadSelf() {
+        // 抓取当前页面源码，打包成文件下载
+        fetch(window.location.href)
+          .then(res => res.text())
+          .then(html => {
+            const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = '成绩查询系统.html';
+            a.click();
+          })
+          .catch(() => {
+            alert('下载失败，请按 Ctrl+S (Mac: Cmd+S) 手动保存此网页为 HTML 文件。');
+          });
+      }
+    </script>
   <header>
     <h1>📊 Excel 成绩查询系统</h1>
     <p class="sub">上传成绩表 → 按学号 / 姓名 / 任意列查询 → 自动统计各科最高分、最低分、平均分</p>
