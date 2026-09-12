@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Excel 成绩查询系统</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>window.XLSX||document.write('<script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"><\/script>');</script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --primary:#4f46e5; --primary-light:#eef2ff; --border:#e5e7eb;
+    --text:#1f2937; --muted:#6b7280; --green:#059669; --red:#dc2626;
+  }
+  body{
+    font-family:system-ui,-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    background:linear-gradient(180deg,#eef2ff 0%,#f8fafc 340px,#f8fafc 100%);
+    min-height:100vh;color:var(--text);padding:26px 16px 70px;
+  }
+  .wrap{max-width:1200px;margin:0 auto}
+  header{text-align:center;margin-bottom:22px}
+  header h1{font-size:26px;font-weight:700;letter-spacing:.5px}
+  header .sub{color:var(--muted);font-size:14px;margin-top:8px}
+
+  .card{background:#fff;border-radius:14px;padding:18px 20px;margin-bottom:16px;
+    border:1px solid #eef0f4;box-shadow:0 1px 3px rgba(0,0,0,.05),0 10px 28px -18px rgba(0,0,0,.25)}
+
+  /* 上传 */
+  .drop-zone{border:2px dashed #c7d2fe;border-radius:12px;padding:38px 20px;text-align:center;
+    cursor:pointer;transition:.2s;background:#fafbff}
+  .drop-zone:hover,.drop-zone.over{background:var(--primary-light);border-color:var(--primary)}
+  .dz-icon{font-size:40px;line-height:1}
+  .dz-title{font-size:16px;font-weight:600;margin-top:10px}
+  .dz-sub{font-size:13px;color:var(--muted);margin-top:6px}
+  .center{text-align:center}
+  a{color:var(--primary);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* 按钮 */
+  .btn{border:none;background:var(--primary);color:#fff;padding:9px 18px;border-radius:9px;
+    font-size:14px;cursor:pointer;transition:.15s;font-family:inherit;white-space:nowrap}
+  .btn:hover{background:#4338ca}
+  .btn.ghost{background:#fff;color:var(--text);border:1px solid var(--border)}
+  .btn.ghost:hover{background:#f9fafb;border-color:#d1d5db}
+  .btn.small{padding:5px 12px;font-size:13px;border-radius:7px}
+
+  /* 工具栏 */
+  .toolbar{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  .tb{display:flex;align-items:center;gap:6px}
+  .tb label{font-size:13px;color:var(--muted)}
+  .tb.grow{flex:1;min-width:120px}
+
+  select,input[type=text],input[type=number]{
+    font-family:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--border);
+    border-radius:8px;background:#fff;color:var(--text);outline:none;transition:.15s}
+  select:focus,input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(79,70,229,.12)}
+  input:disabled{background:#f3f4f6;color:#9ca3af}
+
+  .row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field.grow{flex:1;min-width:220px}
+  .field label{font-size:12px;color:var(--muted)}
+
+  .card-title{font-size:16px;font-weight:600}
+  .card-head{display:flex;justify-content:space-between;align-items:center;
+    margin-bottom:14px;gap:12px;flex-wrap:wrap}
+  .sub-title{font-size:14px;font-weight:600;color:var(--muted);margin:16px 0 10px}
+  .divider{height:1px;background:#f0f2f6;margin:16px 0}
+  .muted{color:var(--muted);font-size:13px}
+
+  /* 条件行 */
+  .cond-head{display:flex;justify-content:space-between;align-items:center;
+    font-size:13px;color:var(--muted);margin-bottom:10px}
+  .cond{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+  .cond .cond-col{min-width:130px}
+  .cond .cond-op{min-width:110px}
+  .cond .cond-val{flex:1;min-width:150px}
+  .cond .del{color:var(--red);border-color:#fecaca}
+  .cond .del:hover{background:#fef2f2;border-color:#fca5a5}
+
+  /* 表格 */
+  .table-wrap{overflow:auto;max-height:470px;border:1px solid var(--border);border-radius:10px}
+  table{border-collapse:separate;border-spacing:0;width:100%;font-size:14px;white-space:nowrap}
+  thead th{position:sticky;top:0;background:#f8fafc;font-weight:600;text-align:left;
+    padding:10px 14px;border-bottom:1px solid var(--border);z-index:1}
+  tbody td{padding:9px 14px;border-bottom:1px solid #f3f4f6}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:#f8faff}
+  td.empty{text-align:center;color:var(--muted);padding:30px;font-size:14px}
+  td.ok{color:var(--green);font-weight:600}
+  td.bad{color:var(--red);font-weight:600}
+
+  /* 统计 */
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .stat-item{background:#f8fafc;border:1px solid #eef0f4;border-radius:10px;padding:14px}
+  .stat-item .k{font-size:12px;color:var(--muted);margin-bottom:6px}
+  .stat-item .v{font-size:22px;font-weight:700;color:var(--primary);line-height:1.2}
+  .stat-item .who{font-size:12px;color:var(--muted);margin-top:4px;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap}
+
+  .hidden{display:none !important}
+  @media (max-width:640px){
+    header h1{font-size:20px}
+    .card{padding:15px 14px}
+    .drop-zone{padding:26px 14px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>📊 Excel 成绩查询系统</h1>
+    <p class="sub">上传成绩表 → 按学号 / 姓名 / 任意列查询 → 自动统计各科最高分、最低分、平均分</p>
+  </header>
+
+  <!-- ========== 上传区 ========== -->
+  <section id="uploadCard" class="card">
+    <div id="dropZone" class="drop-zone">
+      <div class="dz-icon">📁</div>
+      <div class="dz-title">点击选择文件，或把 Excel 拖到这里</div>
+      <div class="dz-sub">支持 .xlsx / .xls / .csv &nbsp;·&nbsp; 全部在本地浏览器解析，不会上传服务器</div>
+    </div>
+    <div class="center muted" style="margin-top:12px">
+      没有现成文件？<a href="javascript:;" id="loadSample">加载示例成绩表</a>
+    </div>
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" hidden>
+  </section>
+
+  <!-- ========== 主区域 ========== -->
+  <section id="main" class="hidden">
+
+    <!-- 工具栏 -->
+    <div class="card toolbar">
+      <div class="tb">
+        <label>工作表</label>
+        <select id="sheetSelect"></select>
+      </div>
+      <div class="tb">
+        <label>表头行</label>
+        <select id="headerRowSelect"></select>
+      </div>
+      <div class="tb grow">
+        <span id="dataSummary" class="muted"></span>
+      </div>
+      <button class="btn ghost" id="btnReupload">重新上传</button>
+    </div>
+
+    <!-- 查询 -->
+    <div class="card">
+      <h2 class="card-title">🔍 查询</h2>
+      <div class="divider"></div>
+
+      <div class="row">
+        <div class="field" style="flex:0 0 160px">
+          <label>查询范围</label>
+          <select id="kwCol"></select>
+        </div>
+        <div class="field grow">
+          <label>关键字（学号 / 姓名 / 任意内容，支持模糊匹配）</label>
+          <input id="kwInput" type="text" placeholder="例如：张三  或  2024001">
+        </div>
+        <button class="btn ghost" id="btnClearKw">清空</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="cond-head">
+        <span>组合条件（可精确查询某列的分数区间等）</span>
+        <button class="btn small" id="btnAddCond">＋ 添加条件</button>
+      </div>
+      <div id="condList"></div>
+
+      <div class="row" style="margin-top:14px">
+        <button class="btn" id="btnSearch">查询</button>
+        <button class="btn ghost" id="btnReset">重置全部条件</button>
+        <button class="btn ghost" id="btnExport">导出结果 CSV</button>
+      </div>
+    </div>
+
+    <!-- 结果 -->
+    <div class="card">
+      <div class="card-head">
+        <h2 class="card-title">📋 查询结果</h2>
+        <span id="resultInfo" class="muted"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead id="resultHead"></thead>
+          <tbody id="resultBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 统计 -->
+    <div class="card">
+      <div class="card-head">
+        <h2 class="card-title">📈 成绩统计</h2>
+        <div class="row" style="gap:10px;align-items:center">
+          <label class="muted">科目</label>
+          <select id="statCol"></select>
+          <label class="muted">及格线</label>
+          <input id="passLine" type="number" value="60" style="width:72px">
+        </div>
+      </div>
+      <div id="statBox" class="stat-grid"></div>
+
+      <h3 class="sub-title">全科总览（基于当前查询结果）</h3>
+      <div class="table-wrap" style="max-height:320px">
+        <table>
+          <thead>
+            <tr><th>科目</th><th>人数</th><th>最高分</th><th>最低分</th><th>平均分</th><th>及格率</th></tr>
+          </thead>
+          <tbody id="overviewBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </section>
+</div>
+
+<script>
+/* ===================== 全局状态 ===================== */
+let WB = null;          // 工作簿
+let RAW = [];           // 当前工作表原始二维数组
+let HEADERS = [];       // 列名
+let ROWS = [];          // 数据行（对象数组）
+let NUMCOLS = [];       // 数值列
+let ID_COL = null;      // 学号列
+let NAME_COL = null;    // 姓名列
+let VIEW = [];          // 当前查询结果
+
+const RENDER_LIMIT = 300;
+
+/* ===================== 工具函数 ===================== */
+const $ = id => document.getElementById(id);
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, m => (
+    { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[m]
+  ));
+}
+
+function toNum(v) {
+  if (v === null || v === undefined) return null;
+  const s = String(v).trim();
+  if (s === '') return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+function fmt(n) {
+  if (!Number.isFinite(n)) return '—';
+  return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100);
+}
+
+/* ===================== 元素引用 ===================== */
+const uploadCard = $('uploadCard'), mainEl = $('main');
+const dropZone = $('dropZone'), fileInput = $('fileInput');
+const sheetSelect = $('sheetSelect'), headerRowSelect = $('headerRowSelect');
+const dataSummary = $('dataSummary');
+const kwCol = $('kwCol'), kwInput = $('kwInput');
+const condList = $('condList');
+const resultHead = $('resultHead'), resultBody = $('resultBody'), resultInfo = $('resultInfo');
+const statCol = $('statCol'), passLine = $('passLine');
+const statBox = $('statBox'), overviewBody = $('overviewBody');
+
+/* ===================== 文件读取 ===================== */
+dropZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (f) readFile(f);
+  fileInput.value = '';   // 允许重复选同一个文件
+});
+
+['dragenter', 'dragover'].forEach(ev =>
+  dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev =>
+  dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove('over'); }));
+dropZone.addEventListener('drop', e => {
+  const f = e.dataTransfer.files[0];
+  if (f) readFile(f);
+});
+
+function readFile(file) {
+  if (typeof XLSX === 'undefined') {
+    alert('Excel 解析库未加载成功，请检查网络后刷新页面。');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      WB = XLSX.read(new Uint8Array(ev.target.result), { type: 'array', cellDates: false });
+      onWorkbookLoaded();
+    } catch (err) {
+      alert('文件解析失败：' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+/* ===================== 工作簿加载 ===================== */
+function onWorkbookLoaded() {
+  const names = WB.SheetNames;
+  sheetSelect.innerHTML = names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  sheetSelect.onchange = () => loadSheet(sheetSelect.value);
+
+  uploadCard.classList.add('hidden');
+  mainEl.classList.remove('hidden');
+  loadSheet(names[0]);
+}
+
+headerRowSelect.addEventListener('change', () => {
+  buildData(Number(headerRowSelect.value));
+});
+
+function loadSheet(name) {
+  const ws = WB.Sheets[name];
+  RAW = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', blankrows: false, raw: true });
+
+  if (!RAW.length) {
+    dataSummary.textContent = '该工作表为空';
+    HEADERS = []; ROWS = []; VIEW = [];
+    renderTable(); renderStats(); renderOverview();
+    return;
+  }
+
+  const maxH = Math.min(RAW.length, 15);
+  headerRowSelect.innerHTML = Array.from({ length: maxH },
+    (_, i) => `<option value="${i}">第 ${i + 1} 行</option>`).join('');
+
+  const auto = detectHeaderRow(RAW);
+  headerRowSelect.value = String(auto);
+  buildData(auto);
+}
+
+/* 自动识别表头行：从第 1 行开始找「非空单元格 >= 2」的第一行 */
+function detectHeaderRow(aoa) {
+  for (let i = 0; i < Math.min(aoa.length, 8); i++) {
+    const cnt = (aoa[i] || []).filter(c => String(c ?? '').trim() !== '').length;
+    if (cnt >= 2) return i;
+  }
+  return 0;
+}
+
+/* ===================== 构建数据 ===================== */
+function buildData(headerIdx) {
+  const rawHeader = RAW[headerIdx] || [];
+
+  let width = rawHeader.length;
+  RAW.forEach(r => { if (r && r.length > width) width = r.length; });
+  if (width === 0) { dataSummary.textContent = '没有可用数据'; return; }
+
+  // 生成唯一列名
+  const used = new Set();
+  HEADERS = [];
+  for (let i = 0; i < width; i++) {
+    let base = String(rawHeader[i] ?? '').trim() || `列${i + 1}`;
+    let name = base, k = 1;
+    while (used.has(name)) { k++; name = `${base}_${k}`; }
+    used.add(name);
+    HEADERS.push(name);
+  }
+
+  // 组装数据行
+  ROWS = [];
+  for (let i = headerIdx + 1; i < RAW.length; i++) {
+    const r = RAW[i] || [];
+    if (!r.some(c => String(c ?? '').trim() !== '')) continue;
+    const o = {};
+    HEADERS.forEach((h, j) => { o[h] = r[j] ?? ''; });
+    ROWS.push(o);
+  }
+
+  // 识别数值列
+  NUMCOLS = HEADERS.filter(h => {
+    let num = 0, ne = 0;
+    for (const r of ROWS) {
+      const s = String(r[h] ?? '').trim();
+      if (!s) continue;
+      ne++;
+      if (toNum(s) !== null) num++;
+    }
+    return ne > 0 && num / ne >= 0.8;
+  });
+
+  // 识别学号 / 姓名列
+  ID_COL   = HEADERS.find(h => /学号|编号|考号|序号|工号|^id$|^no$/i.test(h)) || null;
+  NAME_COL = HEADERS.find(h => /姓名|名字|学生姓名/.test(h)) || null;
+
+  // 填充下拉框
+  kwCol.innerHTML = `<option value="__all__">全部列</option>` +
+    HEADERS.map(h => `<option value="${esc(h)}">${esc(h)}</option>`).join('');
+
+  const statCols = NUMCOLS.filter(c => c !== ID_COL);
+  statCol.innerHTML = (statCols.length ? statCols : NUMCOLS)
+    .map(h => `<option value="${esc(h)}">${esc(h)}</option>`).join('');
+
+  // 重置条件区
+  condList.innerHTML = '';
+  addCondition();
+
+  dataSummary.textContent =
+    `共 ${ROWS.length} 条记录 · ${HEADERS.length} 列 · 可统计科目 ${statCols.length} 个`;
+
+  runQuery();
+}
+
+/* ===================== 组合条件 ===================== */
+const OP_LIST = [
+  ['contains', '包含'], ['eq', '等于'], ['ne', '不等于'],
+  ['start', '开头是'], ['end', '结尾是'],
+  ['gt', '大于'], ['gte', '大于等于'], ['lt', '小于'], ['lte', '小于等于'],
+  ['empty', '为空'], ['notempty', '不为空']
+];
+
+function addCondition() {
+  const div = document.createElement('div');
+  div.className = 'cond';
+  div.innerHTML = `
+    <select class="cond-col">
+      ${HEADERS.map(h => `<option value="${esc(h)}">${esc(h)}</option>`).join('')}
+    </select>
+    <select class="cond-op">
+      ${OP_LIST.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}
+    </select>
+    <input class="cond-val" type="text" placeholder="输入值，例如 90">
+    <button class="btn small ghost del" title="删除此条件">✕</button>
+  `;
+  // 默认选中姓名列（如果有）
+  if (NAME_COL) div.querySelector('.cond-col').value = NAME_COL;
+  condList.appendChild(div);
+}
+
+$('btnAddCond').onclick = () => { addCondition(); };
+
+condList.addEventListener('input', e => {
+  if (e.target.classList.contains('cond-val')) runQuery();
+});
+
+condList.addEventListener('change', e => {
+  const t = e.target;
+  if (t.classList.contains('cond-col') || t.classList.contains('cond-op')) {
+    const rowEl = t.closest('.cond');
+    const op = rowEl.querySelector('.cond-op').value;
+    const valEl = rowEl.querySelector('.cond-val');
+    const needVal = (op !== 'empty' && op !== 'notempty');
+    valEl.disabled = !needVal;
+    valEl.placeholder = needVal ? '输入值' : '（无需填写）';
+    if (!needVal) valEl.value = '';
+    runQuery();
+  }
+});
+
+condList.addEventListener('click', e => {
+  if (e.target.classList.contains('del')) {
+    e.target.closest('.cond').remove();
+    runQuery();
+  }
+});
+
+/* ===================== 匹配逻辑 ===================== */
+function matchOp(cell, op, target) {
+  const a = String(cell ?? '').trim();
+  const b = String(target ?? '').trim();
+  const la = a.toLowerCase(), lb = b.toLowerCase();
+
+  switch (op) {
+    case 'contains': return la.includes(lb);
+    case 'eq': {
+      if (la === lb) return true;
+      const na = toNum(a), nb = toNum(b);
+      return na !== null && nb !== null && na === nb;
+    }
+    case 'ne': {
+      if (la === lb) return false;
+      const na = toNum(a), nb = toNum(b);
+      return !(na !== null && nb !== null && na === nb);
+    }
+    case 'start': return la.startsWith(lb);
+    case 'end':   return la.endsWith(lb);
+    case 'gt':  { const x = toNum(a), y = toNum(b); return x !== null && y !== null && x >  y; }
+    case 'gte': { const x = toNum(a), y = toNum(b); return x !== null && y !== null && x >= y; }
+    case 'lt':  { const x = toNum(a), y = toNum(b); return x !== null && y !== null && x <  y; }
+    case 'lte': { const x = toNum(a), y = toNum(b); return x !== null && y !== null && x <= y; }
+    case 'empty':    return a === '';
+    case 'notempty': return a !== '';
+  }
+  return true;
+}
+
+/* ===================== 执行查询 ===================== */
+function runQuery() {
+  if (!HEADERS.length) return;
+
+  const kw = kwInput.value.trim().toLowerCase();
+  const scope = kwCol.value;
+
+  const conds = [...condList.querySelectorAll('.cond')].map(el => ({
+    col: el.querySelector('.cond-col').value,
+    op:  el.querySelector('.cond-op').value,
+    val: el.querySelector('.cond-val').value.trim()
+  })).filter(c => c.op === 'empty' || c.op === 'notempty' || c.val !== '');
+
+  let res = ROWS;
+
+  if (kw) {
+    const cols = scope === '__all__' ? HEADERS : [scope];
+    res = res.filter(r => cols.some(c => String(r[c] ?? '').toLowerCase().includes(kw)));
+  }
+
+  for (const c of conds) {
+    res = res.filter(r => matchOp(r[c.col], c.op, c.val));
+  }
+
+  VIEW = res;
+  renderTable();
+  renderStats();
+  renderOverview();
+}
+
+/* ===================== 渲染：结果表 ===================== */
+function renderTable() {
+  if (!HEADERS.length) {
+    resultHead.innerHTML = '';
+    resultBody.innerHTML = '';
+    resultInfo.textContent = '';
+    return;
+  }
+  resultHead.innerHTML = '<tr>' + HEADERS.map(h => `<th>${esc(h)}</th>`).join('') + '</tr>';
+
+  const list = VIEW.slice(0, RENDER_LIMIT);
+  if (!list.length) {
+    resultBody.innerHTML =
+      `<tr><td class="empty" colspan="${HEADERS.length}">没有匹配的记录，换个条件试试～</td></tr>`;
+  } else {
+    resultBody.innerHTML = list.map(r =>
+      '<tr>' + HEADERS.map(h => `<td>${esc(r[h])}</td>`).join('') + '</tr>'
+    ).join('');
+  }
+
+  resultInfo.textContent = `共 ${VIEW.length} 条` +
+    (VIEW.length > RENDER_LIMIT ? ` · 仅显示前 ${RENDER_LIMIT} 条` : '');
+}
+
+/* ===================== 渲染：单科统计 ===================== */
+function renderStats() {
+  const col = statCol.value;
+  if (!col) {
+    statBox.innerHTML = '<div class="empty muted">没有可统计的数值列</div>';
+    return;
+  }
+  const pl = parseFloat(passLine.value);
+  const pass = Number.isFinite(pl) ? pl : 60;
+
+  const items = [];
+  VIEW.forEach(r => {
+    const v = toNum(r[col]);
+    if (v !== null) items.push({ row: r, v });
+  });
+
+  if (!items.length) {
+    statBox.innerHTML = '<div class="muted" style="padding:10px">当前结果中没有可统计的数值</div>';
+    return;
+  }
+
+  const vals = items.map(x => x.v).sort((a, b) => a - b);
+  const sum = vals.reduce((a, b) => a + b, 0);
+  const avg = sum / vals.length;
+  const mid = vals.length % 2
+    ? vals[(vals.length - 1) / 2]
+    : (vals[vals.length / 2 - 1] + vals[vals.length / 2]) / 2;
+
+  let maxI = items[0], minI = items[0];
+  items.forEach(x => { if (x.v > maxI.v) maxI = x; if (x.v < minI.v) minI = x; });
+
+  const passCnt = vals.filter(v => v >= pass).length;
+
+  const who = r => {
+    const parts = [];
+    if (NAME_COL && String(r[NAME_COL] ?? '').trim()) parts.push(r[NAME_COL]);
+    if (ID_COL && String(r[ID_COL] ?? '').trim()) parts.push(r[ID_COL]);
+    return parts.join(' · ') || '—';
+  };
+
+  statBox.innerHTML = `
+    <div class="stat-item"><div class="k">参与统计人数</div><div class="v">${vals.length}</div></div>
+    <div class="stat-item"><div class="k">最高分</div>
+      <div class="v" style="color:var(--green)">${fmt(maxI.v)}</div>
+      <div class="who" title="${esc(who(maxI.row))}">${esc(who(maxI.row))}</div></div>
+    <div class="stat-item"><div class="k">最低分</div>
+      <div class="v" style="color:var(--red)">${fmt(minI.v)}</div>
+      <div class="who" title="${esc(who(minI.row))}">${esc(who(minI.row))}</div></div>
+    <div class="stat-item"><div class="k">平均分</div><div class="v">${fmt(avg)}</div></div>
+    <div class="stat-item"><div class="k">中位数</div><div class="v">${fmt(mid)}</div></div>
+    <div class="stat-item"><div class="k">及格率（≥${pass}）</div>
+      <div class="v">${(passCnt / vals.length * 100).toFixed(1)}%</div>
+      <div class="who">${passCnt} / ${vals.length} 人</div></div>
+  `;
+}
+
+/* ===================== 渲染：全科总览 ===================== */
+function renderOverview() {
+  const cols = NUMCOLS.filter(c => c !== ID_COL);
+  if (!cols.length) {
+    overviewBody.innerHTML = '<tr><td class="empty" colspan="6">没有可统计的数值列</td></tr>';
+    return;
+  }
+  const pl = parseFloat(passLine.value);
+  const pass = Number.isFinite(pl) ? pl : 60;
+
+  overviewBody.innerHTML = cols.map(c => {
+    const vals = VIEW.map(r => toNum(r[c])).filter(v => v !== null);
+    if (!vals.length) {
+      return `<tr><td><b>${esc(c)}</b></td><td class="muted" colspan="5">无数据</td></tr>`;
+    }
+    const sum = vals.reduce((a, b) => a + b, 0);
+    const passCnt = vals.filter(v => v >= pass).length;
+    let mx = vals[0], mn = vals[0];
+    vals.forEach(v => { if (v > mx) mx = v; if (v < mn) mn = v; });
+    return `<tr>
+      <td><b>${esc(c)}</b></td>
+      <td>${vals.length}</td>
+      <td class="ok">${fmt(mx)}</td>
+      <td class="bad">${fmt(mn)}</td>
+      <td>${fmt(sum / vals.length)}</td>
+      <td>${(passCnt / vals.length * 100).toFixed(1)}%</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ===================== 事件绑定 ===================== */
+let kwTimer = null;
+kwInput.addEventListener('input', () => {
+  clearTimeout(kwTimer);
+  kwTimer = setTimeout(runQuery, 200);
+});
+kwCol.addEventListener('change', runQuery);
+
+$('btnSearch').onclick = runQuery;
+
+$('btnClearKw').onclick = () => { kwInput.value = ''; runQuery(); };
+
+$('btnReset').onclick = () => {
+  kwInput.value = '';
+  kwCol.value = '__all__';
+  condList.innerHTML = '';
+  addCondition();
+  runQuery();
+};
+
+$('btnReupload').onclick = () => fileInput.click();
+
+$('btnExport').onclick = () => {
+  if (!VIEW.length) { alert('当前没有可导出的数据'); return; }
+  const lines = [HEADERS.join(',')];
+  VIEW.forEach(r => {
+    lines.push(HEADERS.map(h => {
+      let v = String(r[h] ?? '');
+      if (/[",\n]/.test(v)) v = '"' + v.replace(/"/g, '""') + '"';
+      return v;
+    }).join(','));
+  });
+  const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '查询结果.csv';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+};
+
+statCol.addEventListener('change', () => { renderStats(); renderOverview(); });
+passLine.addEventListener('input', () => { renderStats(); renderOverview(); });
+
+/* ===================== 示例数据 ===================== */
+const SAMPLE_AOA = [
+  ['学号', '姓名', '班级', '语文', '数学', '英语', '物理', '化学'],
+  ['2024001', '张三', '高一(1)班', 88, 95, 79, 82, 90],
+  ['2024002', '李四', '高一(1)班', 76, 88, 92, 71, 85],
+  ['2024003', '王五', '高一(1)班', 92, 67, 85, 88, 79],
+  ['2024004', '赵六', '高一(2)班', 65, 72, 58, 60, 66],
+  ['2024005', '钱七', '高一(2)班', 81, 90, 74, 95, 88],
+  ['2024006', '孙八', '高一(2)班', 55, 48, 62, 51, 59],
+  ['2024007', '周九', '高一(3)班', 97, 93, 91, 89, 96],
+  ['2024008', '吴十', '高一(3)班', 72, 81, 77, 68, 73],
+  ['2024009', '郑十一', '高一(3)班', 84, 76, 88, 90, 82],
+  ['2024010', '王十二', '高一(1)班', 69, 85, 73, 77, 80]
+];
+
+$('loadSample').onclick = () => {
+  if (typeof XLSX === 'undefined') { alert('Excel 解析库未加载成功，请检查网络后刷新页面。'); return; }
+  const ws = XLSX.utils.aoa_to_sheet(SAMPLE_AOA);
+  WB = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(WB, ws, '成绩表');
+  onWorkbookLoaded();
+};
+</script>
+</body>
+</html>
