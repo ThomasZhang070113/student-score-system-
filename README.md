@@ -11,7 +11,7 @@
 - 💻 支持切换工作表和调整表头行，适配多种表格格式。
 
 ## 🚀 使用方法
-1. 访问在线演示地址：[点击这里使用](https://github.com/ThomasZhang070113/student-score-system-/settings/pages)
+1. 访问在线演示地址：[点击这里使用](t https://thomaszhang070113.github.io/student-score-system-/)
 2. 点击上传区选择你的 Excel 成绩表，或直接拖拽进去。
 3. 顶部可切换工作表和表头行，下方输入关键字即可查询。
 4. 在统计区选择科目，查看该科目的分数统计。
